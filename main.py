@@ -752,8 +752,8 @@ class SettingsPage(HoverWidget):
         self.fps_label.setText(f"FPS: {fps:.1f}")
 
     def set_exposure_value(self, value):
-        if  self.camera_thread.camera is not None:
-            self.camera_thread.set_exposure_value(value)
+        # if  self.camera_thread.camera is not None:
+        self.camera_thread.set_exposure_value(value)
         self.exposure_value_label.setText(str(value))
 
     def set_trigger_mode(self, state):
