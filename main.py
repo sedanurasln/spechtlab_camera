@@ -32,8 +32,8 @@ class CameraThread(QThread):
         self.is_running = False
         self.latest_frame = None
         self.continuous_shooting = False
-        self.video_writer = None
-        self.exposure_value = 35000.0
+        # self.video_writer = None
+        self.exposure_value = 50000.0
         self.sync_free_run_timer_rate = 30  
         self.last_frame_time = time.time()
         self.fps_history = collections.deque(maxlen=10)
@@ -55,8 +55,8 @@ class CameraThread(QThread):
                 self.latest_frame = image
                 self.frame_ready.emit(image)
 
-                if self.continuous_shooting and self.video_writer is not None:
-                    self.video_writer.write(image)
+                # if self.continuous_shooting and self.video_writer is not None:
+                #     self.video_writer.write(image)
 
                 current_time = time.time()
                 fps = 1.0 / (current_time - self.last_frame_time)
@@ -71,8 +71,8 @@ class CameraThread(QThread):
 
         self.camera.StopGrabbing()
         self.camera.Close()
-        if self.video_writer is not None:
-            self.video_writer.release()
+        # if self.video_writer is not None:
+        #     self.video_writer.release()
 
     def set_trigger_mode(self, enabled):
         self.trigger_mode_enabled = enabled
@@ -88,7 +88,6 @@ class CameraThread(QThread):
     def stop(self):
         self.is_running = False
         
-
     def grab_frame(self):
         return self.latest_frame
 
@@ -96,16 +95,17 @@ class CameraThread(QThread):
         self.continuous_shooting = value
 
     def set_exposure_value(self, value):
-        self.exposure_value = value
-        self.camera.ExposureTimeAbs.Value = value
+        self.exposure_value = value  
 
+        if self.camera is not None and self.camera.IsGrabbing():  
+            self.camera.ExposureTimeAbs.Value = value  
+    
 
     def set_sync_free_run_timer_rate(self, rate):
         self.sync_free_run_timer_rate = rate
         if self.camera is None and self.camera is not None:
             self.camera.SyncFreeRunTimerTriggerRateAbs.SetValue(rate)
         
-
     def sync_free_run_timer_update_execute(self):
         if self.sync_free_run_timer_enabled:
             self.camera.SyncFreeRunTimerUpdate.Execute()
@@ -181,7 +181,7 @@ class MainPage(HoverWidget):
     def __init__(self, camera_thread):
         super().__init__()
         self.camera_thread = camera_thread
-        self.single_shot_label = None  # Define single_shot_label attribute
+        self.single_shot_label = None  
 
         self.init_ui()
 
@@ -205,7 +205,6 @@ class MainPage(HoverWidget):
         self.single_shot_label.setFixedWidth(800)
         self.single_shot_label.setAlignment(Qt.AlignCenter)
 
-        # Adding labels to a QHBoxLayout
         image_layout = QHBoxLayout()
         image_layout.addWidget(self.image_label)
         image_layout.addWidget(self.single_shot_label)
@@ -332,7 +331,7 @@ class MainPage(HoverWidget):
         self.user_set_combobox.setEnabled(False)
         
 
-    def stop_camera(self):
+    def stop_camera(self, value):
         self.camera_thread.stop()
         self.start_button.setEnabled(True)
         self.continuous_button.setEnabled(False)
@@ -361,6 +360,7 @@ class MainPage(HoverWidget):
                 self.continuous_button.setText('Stop Continuous Shot')
                 self.flash_color = '#00FF00'
                 self.is_flashing = True
+                
                 self.flash_timer.start(400)
                 self.stop_button.setEnabled(False)
                 self.single_shot_button.setEnabled(False)
@@ -368,13 +368,48 @@ class MainPage(HoverWidget):
                 self.camera_thread.set_continuous_shooting(False)
                 self.continuous_button.setText('Continuous Shot')
                 self.flash_timer.stop()
+                self.start_recording()
+
                 self.stop_button.setEnabled(True)
                 self.single_shot_button.setEnabled(True)
         else:
             self.start_camera()
+    def start_recording(self):
+        if not self.buffered_frames:
+            return
+
+        options = QFileDialog.Options()
+        file_dialog = QFileDialog()
+        file_dialog.setOptions(options)
+        file_dialog.setFileMode(QFileDialog.Directory)
+
+        if file_dialog.exec_() == QFileDialog.Accepted:
+            selected_dir = file_dialog.selectedFiles()[0]
+
+            today = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            output_dir = os.path.join(selected_dir, today)
+
+            os.makedirs(output_dir, exist_ok=True)
+
+            frames = list(self.buffered_frames.values())[0]
+            for i, frame in enumerate(frames):
+                frame_file = os.path.join(output_dir, f"{today}_{i}.png")
+                cv2.imwrite(frame_file, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+            print("Frames saved")
+
+            self.buffered_frames.clear()
+            self.start_camera()
+        else:
+            today = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            self.start_camera()
+
 
     def update_display(self, frame):
         if frame is not None:
+            today = datetime.now().strftime("%Y-%m-%d")  
+            self.buffered_frames[today].append(frame)  
+
             label_width = 800
             label_height = 600
 
@@ -422,6 +457,7 @@ class SettingsPage(HoverWidget):
         self.camera_thread = camera_thread
         self.is_flashing = False 
         self.flash_timer = QTimer(self)
+
         self.init_ui()
 
     def init_ui(self):
@@ -452,8 +488,9 @@ class SettingsPage(HoverWidget):
         self.exposure_slider = QSlider(Qt.Horizontal)
         self.exposure_slider.setMinimum(1000)
         self.exposure_slider.setMaximum(500000)
+
         self.exposure_slider.setValue(int(self.camera_thread.exposure_value))
-        self.exposure_slider.setTickInterval(5000)
+        self.exposure_slider.setTickInterval(10000)
         self.exposure_slider.setTickPosition(QSlider.TicksBelow)
         self.exposure_slider.setFixedWidth(400)
         exposure_layout.addWidget(self.exposure_slider)
@@ -524,7 +561,7 @@ class SettingsPage(HoverWidget):
         self.trigger_source_combobox = QComboBox(self)
         self.trigger_source_combobox.setEnabled(True)
         self.trigger_source_combobox.addItems(["Software", "Line1", "Line3", "Action1"])
-        self.trigger_source_combobox.setCurrentText("Line1")
+        # self.trigger_source_combobox.setCurrentText("Line1")
         self.trigger_source_combobox.currentTextChanged.connect(self.set_trigger_source)
         self.trigger_source_combobox.setFixedWidth(400)
         self.trigger_source_combobox.setFixedHeight(50)
@@ -540,8 +577,7 @@ class SettingsPage(HoverWidget):
 
         self.trigger_selecter_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
         self.trigger_selecter_combobox = QComboBox(self)
-        self.trigger_selecter_combobox.addItems(["Acqusition Start", "Frame Start"])
-        self.trigger_selecter_combobox.setCurrentText("Acqusition Start")
+        self.trigger_selecter_combobox.addItems(["Acquisition Start", "Frame Start"])
         self.trigger_selecter_combobox.currentTextChanged.connect(self.set_trigger_selecter)
         self.trigger_selecter_combobox.setFixedWidth(410)
         self.trigger_selecter_combobox.setFixedHeight(50)
@@ -559,7 +595,6 @@ class SettingsPage(HoverWidget):
         self.trigger_activation_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
         self.trigger_activation_combobox = QComboBox(self)
         self.trigger_activation_combobox.addItems(["Rising Edge", "Falling Edge"])
-        self.trigger_activation_combobox.setCurrentText("Rising Edge")
         self.trigger_activation_combobox.currentTextChanged.connect(self.set_trigger_activation)
         self.trigger_activation_combobox.setFixedWidth(410)
         self.trigger_activation_combobox.setFixedHeight(50)
@@ -615,26 +650,53 @@ class SettingsPage(HoverWidget):
         frame_layout.addLayout(horizontal_layout)
 
         self.flash_timer.timeout.connect(self.flash_button)
+      
 
-    
+    def set_trigger_activation(self, source):
+        if self.camera_thread.isRunning():
+
+            if source == "Rising Edge":
+                print("R.E selected")
+                self.camera_thread.camera.TriggerSelector.SetValue("AcquisitionStart")
+                self.camera_thread.camera.TriggerSource.SetValue("Line1")
+                self.camera_thread.camera.TriggerActivation.SetValue("RisingEdge") 
+
+                self.trigger_selecter_combobox.setCurrentText("Acquisition Start")
+                self.trigger_source_combobox.setCurrentText("Line1")
+
+            elif source == "Falling Edge":
+                print("F.E. selected")
+                self.camera_thread.camera.TriggerSelector.SetValue("FrameStart")
+                self.camera_thread.camera.TriggerSource.SetValue("Line3")
+                self.camera_thread.camera.TriggerActivation.SetValue("FallingEdge") 
+
+                self.trigger_selecter_combobox.setCurrentText("Frame Start")
+                self.trigger_source_combobox.setCurrentText("Line3")
+            else:
+                print("No valid option selected")
+        
 
     def set_trigger_selecter(self, source):
-        if source == "AcquisitionStart":
-            self.camera_thread.camera.TriggerSelector.SetValue("AcquisitionStart")
-        elif source == "FrameStart":
-            self.camera_thread.camera.TriggerSelector.SetValue("FrameStart")
-        else:
-            pass
+        if self.camera_thread.isRunning():
+            if source == "Acquisition Start":
+                print("Acquisition Start selected")
+                self.camera_thread.camera.TriggerSelector.SetValue("AcquisitionStart")
+                self.camera_thread.camera.TriggerSource.SetValue("Line1")
+                self.camera_thread.camera.TriggerActivation.SetValue("RisingEdge") 
+                
+                self.trigger_activation_combobox.setCurrentText("Rising Edge")
+                self.trigger_source_combobox.setCurrentText("Line1")
 
-    def set_trigger_activation(self, activation):
-        if activation == "RisingEdge":
-            self.camera_thread.camera.TriggerActivation.SetValue("RisingEdge")
-        elif activation == "FallingEdge":
-            self.camera_thread.camera.TriggerActivation.SetValue("FallingEdge")
-  
-        else:
-            pass    
-
+            elif source == "Frame Start":
+                print("Frame Start selected")
+                self.camera_thread.camera.TriggerSelector.SetValue("FrameStart")
+                self.camera_thread.camera.TriggerSource.SetValue("Line3")
+                self.camera_thread.camera.TriggerActivation.SetValue("FallingEdge") 
+                
+                self.trigger_activation_combobox.setCurrentText("Falling Edge")
+                self.trigger_source_combobox.setCurrentText("Line3")
+            else:
+                print("No valid option selected")
 
 
     def start_camera_handler(self):
@@ -663,7 +725,8 @@ class SettingsPage(HoverWidget):
             QMessageBox.warning(self, "No Image", "Cannot save settings without grabbing an image from the camera.")
 
     def execute_sync_free_run_timer_update(self):
-        self.camera_thread.sync_free_run_timer_update_execute()
+        if self.camera_thread.camera is None:
+            self.camera_thread.sync_free_run_timer_update_execute()
 
     def update_display(self, frame):
         if frame is not None:
@@ -679,8 +742,10 @@ class SettingsPage(HoverWidget):
         self.fps_label.setText(f"FPS: {fps:.1f}")
 
     def set_exposure_value(self, value):
-        if self.camera_thread.camera is not None:
+        if  self.camera_thread.camera is not None:
             self.camera_thread.set_exposure_value(value)
+     
+
         self.exposure_value_label.setText(str(value))
 
 
