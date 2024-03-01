@@ -27,7 +27,6 @@ button_style = '''
     }
 '''
 
-
 class CameraThread(QThread):
     frame_ready = pyqtSignal(object)
     fps_changed = pyqtSignal(float)
@@ -69,7 +68,6 @@ class CameraThread(QThread):
                 self.fps_changed.emit(avg_fps)
 
             grab_result.Release()
-
         self.camera.StopGrabbing()
 
     def set_trigger_mode(self, enabled):
@@ -135,7 +133,6 @@ class CameraThread(QThread):
                 self.camera.UserSetLoad.Execute()
             else:
                 print("Invalid user set selected")
-
                 
 class HoverWidget(QWidget):
     def __init__(self, *args, **kwargs):
@@ -191,7 +188,6 @@ class MainPage(HoverWidget):
         self.is_flashing = False
         self.buffered_frames = collections.defaultdict(collections.deque)
 
- 
     def init_ui(self):
         self.image_label = QLabel(self)
         self.image_label.setStyleSheet('background-color:#709775;')
@@ -270,7 +266,6 @@ class MainPage(HoverWidget):
         right_buttons_layout = QVBoxLayout()
         right_buttons_layout.addWidget(self.save_button)
         button_layout.addLayout(right_buttons_layout)
-
 
         main_layout.addLayout(button_layout)
 
@@ -447,6 +442,7 @@ class MainPage(HoverWidget):
                     f'background-color: {self.flash_color}; color: white; border: 1px solid #8B3626; border-radius: 5px; padding: 5px 10px;'
                 )
 
+
 class SettingsPage(HoverWidget):
     def __init__(self, camera_thread, parent=None):
         super(SettingsPage, self).__init__(parent)
@@ -454,7 +450,6 @@ class SettingsPage(HoverWidget):
         self.is_flashing = False 
         self.flash_timer = QTimer(self)
         self.init_ui()
-
 
     def init_ui(self):
 
@@ -518,7 +513,6 @@ class SettingsPage(HoverWidget):
         self.trigger_mode_checkbox.stateChanged.connect(self.set_trigger_mode)
         self.trigger_mode_checkbox.setStyleSheet('font-size: 20px; background-color: #839788; padding-left: 45px;')
         trigger_layout.addWidget(self.trigger_mode_checkbox, alignment=Qt.AlignHCenter)
-
 
         trigger_source_layout = QHBoxLayout()
         self.trigger_source_label = QLabel("Trigger Source:", self)
@@ -596,7 +590,7 @@ class SettingsPage(HoverWidget):
 
         trigger_activation_layout = QHBoxLayout()
         self.trigger_activation_label = QLabel("Trigger Activation:", self)
-        self.trigger_activation_label.setToolTip("Setsthe type of signal transition that will activate the selected trigger.")
+        self.trigger_activation_label.setToolTip("Sets the type of signal transition that will activate the selected trigger.")
         self.trigger_activation_label.setAlignment(Qt.AlignCenter)
         self.trigger_activation_label.setFixedWidth(250)
         self.trigger_activation_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
@@ -654,7 +648,6 @@ class SettingsPage(HoverWidget):
 
         frame_layout.addLayout(horizontal_layout)
 
-      
     def set_trigger_activation(self, source):
             if self.camera_thread.isRunning():
 
@@ -751,7 +744,6 @@ class SettingsPage(HoverWidget):
             else:
                 print("No valid option selected")
 
-
     def create_button(self, text, on_click):
         button = QPushButton(text, self)
         button.setStyleSheet(button_style)
@@ -783,7 +775,6 @@ class SettingsPage(HoverWidget):
         self.fps_label.setText(f"FPS: {fps:.1f}")
 
     def set_exposure_value(self, value):
-        # if  self.camera_thread.camera is not None:
         self.camera_thread.set_exposure_value(value)
         self.exposure_value_label.setText(str(value))
 
@@ -807,8 +798,6 @@ class SettingsPage(HoverWidget):
     def set_trigger_source(self, source):
         self.camera_thread.set_trigger_source(source)       
 
-
-
 class HelpPage(HoverWidget):
     def __init__(self, parent=None):
         super(HelpPage, self).__init__(parent)
@@ -818,23 +807,38 @@ class HelpPage(HoverWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignCenter)
 
-        help_label = QLabel("Welcome to Camera App Help Page", self)
+        help_label = QLabel("\nSpechtLab BaslerCamera Help Page\n\n", self)
         help_label.setAlignment(Qt.AlignCenter)
         help_label.setStyleSheet('font-size: 24px;')
-
-        instructions_label = QLabel(
-            "hello."
-            "\n\nworld"
-            "\n\nThe 'dsgh"
-            "\n\nTredfghjk."
-            "\n\nrtfyjk!"
-            , self)
-        instructions_label.setAlignment(Qt.AlignCenter)
-        instructions_label.setStyleSheet('font-size: 20px;')
-        instructions_label.setWordWrap(True)
-
+        help_label.setFixedHeight(70)
         main_layout.addWidget(help_label)
-        main_layout.addWidget(instructions_label)
+
+        instructions_layout = QVBoxLayout()
+        instructions_label = QLabel(
+            "\nMAIN PAGE\n\n"
+            "-  Start Camera button: Starts the camera.\n"
+            "-  Stop Camera button: Stops the camera.\n"
+            "-  Single Shot button: Captures a single frame from the camera.\n"
+            "-  Save button: Saves the captured image.\n"
+            "-  Continuous Shot button: Captures a series of images continuously until stopped."
+            "\n\nSETTING PAGE\n\n"
+            "-  Exposure Value slider: Adjusts the exposure value of the camera.\n"
+            "-  Trigger Selector combobox: Selects the trigger type to configure.\n"
+            "-  Trigger Activation combobox: Sets the type of signal transition to activate the selected trigger.\n"
+            "-  Trigger Mode checkbox: Sets the mode of the currently selected trigger (ON/OFF).\n"
+            "-  Trigger Source combobox: Sets the source signal for the selected trigger.\n"
+            "-  Sync Free Run Trigger Rate: Sets the synchronized free run trigger rate.\n"
+            "-  Sync Free Run checkbox: Enables the synchronized free run mode.\n"
+            "-  Execute button: Updates the synchronized free run settings. This update requires Sync Free Run to be ON.\n"
+            "-  Save button: Saves all the settings made on the image.\n\n"
+            , self)
+        instructions_label.setAlignment(Qt.AlignLeft)
+        instructions_label.setStyleSheet('font-size: 20px; padding-left:50px; padding-right:50px')
+        instructions_label.setWordWrap(True)
+        instructions_layout.addWidget(instructions_label)
+
+        main_layout.addLayout(instructions_layout)
+
 
 class CameraApp(QWidget):
     def __init__(self):
@@ -842,7 +846,6 @@ class CameraApp(QWidget):
 
         self.setWindowTitle("SpechtLab Basler Camera Viewer")
         self.setWindowIcon(QIcon('spc.png'))
-
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #CAD2C5;")
 
