@@ -1,7 +1,7 @@
 from datetime import datetime
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTabWidget, QFileDialog, QSlider, QFrame, QCheckBox, QSpinBox, QComboBox, QMessageBox, QGroupBox, QSpacerItem , QSizePolicy
-from PyQt5.QtGui import QImage, QPixmap, QFont, QColor, QPalette
+from PyQt5.QtGui import QImage, QPixmap, QFont, QColor, QPalette, QIcon
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer
 import cv2
 from pypylon import pylon
@@ -20,7 +20,13 @@ button_style = '''
     QPushButton:hover {
         background-color: #2f3e46;
     }
+    QPushButton:disabled {
+        background-color: #CCCCCC;
+        color: #666666;
+        border: 1px solid #999999;
+    }
 '''
+
 
 class CameraThread(QThread):
     frame_ready = pyqtSignal(object)
@@ -204,10 +210,15 @@ class MainPage(HoverWidget):
         image_layout.addWidget(self.single_shot_label)
 
         self.start_button = self.create_button('Start Camera', self.start_camera_handler)
+        self.start_button.setToolTip("Open Camera")
         self.stop_button = self.create_button('Stop Camera', self.stop_camera)
+        self.stop_button.setToolTip("Stop Camera")
         self.single_shot_button = self.create_button('Single Shot', self.single_shot)
+        self.single_shot_button.setToolTip("Single Shot")
         self.continuous_button = self.create_button('Continuous Shot', self.continuous_shot_manager)
+        self.continuous_button.setToolTip("Continuous Shot")
         self.save_button = self.create_button('Save', self.save)
+        self.save_button.setToolTip("Records single shot.")
 
         self.start_button.setStyleSheet(button_style)
         self.stop_button.setStyleSheet(button_style)
@@ -226,7 +237,9 @@ class MainPage(HoverWidget):
         user_set_layout.setContentsMargins(250,30,250,0)
         
         user_set_label = QLabel("User Sets:", self)
-        user_set_label.setAlignment(Qt.AlignLeft)
+        user_set_label.setToolTip("User set is selected where the settings will be saved.")
+        user_set_label.setAlignment(Qt.AlignCenter)
+        user_set_label.setFixedWidth(250)
         user_set_label.setStyleSheet('font-size: 22px; background-color: #ede7e3')
         user_set_label.setFixedWidth(250)
         self.user_set_combobox = QComboBox(self) 
@@ -235,7 +248,7 @@ class MainPage(HoverWidget):
         self.user_set_combobox.currentTextChanged.connect(self.set_user_set)
         self.user_set_combobox.setFixedWidth(500)  
         self.user_set_combobox.setFixedHeight(50)  
-        self.user_set_combobox.setStyleSheet('font-size:20px; background-color: #ede7e3')
+        self.user_set_combobox.setStyleSheet('font-size:20px; background-color: #ede7e3; padding-left:190px;')
 
         user_set_layout.addWidget(user_set_label)
         user_set_layout.addWidget(self.user_set_combobox) 
@@ -266,7 +279,6 @@ class MainPage(HoverWidget):
 
         self.captured_image = None
         self.single_shot_taken = False
-        
     
     def create_button(self, text, on_click):
         button = QPushButton(text, self)
@@ -423,6 +435,7 @@ class MainPage(HoverWidget):
             cv2.imwrite(file_name, self.captured_image)
             print('Image saved successfully.')
             self.single_shot_label.clear()
+            self.save_button.setEnabled(False)
 
     def flash_button(self):
         if self.is_flashing:  
@@ -441,7 +454,6 @@ class SettingsPage(HoverWidget):
         self.is_flashing = False 
         self.flash_timer = QTimer(self)
         self.init_ui()
-        self.settings_dict = {}  
 
 
     def init_ui(self):
@@ -464,6 +476,8 @@ class SettingsPage(HoverWidget):
 
         exposure_layout = QHBoxLayout()
         self.exposure_label = QLabel('Exposure Value:', self)
+        self.exposure_label.setToolTip("Sets the exposure value.")
+
         self.exposure_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
         self.exposure_label.setFixedHeight(35)
         self.exposure_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -497,23 +511,35 @@ class SettingsPage(HoverWidget):
         trigger_layout.setSpacing(30)
 
         self.trigger_mode_checkbox = QCheckBox("Trigger Mode", self)
-        self.trigger_mode_checkbox.setFixedHeight(40)
+        self.trigger_mode_checkbox.setToolTip("Sets the mode for the currently selected trigger.")
+        self.trigger_mode_checkbox.setFixedHeight(50)
         self.trigger_mode_checkbox.setFixedWidth(250)
         self.trigger_mode_checkbox.setChecked(self.camera_thread.trigger_mode_enabled) 
         self.trigger_mode_checkbox.stateChanged.connect(self.set_trigger_mode)
-        self.trigger_mode_checkbox.setStyleSheet('font-size: 20px; background-color: #839788;')
+        self.trigger_mode_checkbox.setStyleSheet('font-size: 20px; background-color: #839788; padding-left: 45px;')
         trigger_layout.addWidget(self.trigger_mode_checkbox, alignment=Qt.AlignHCenter)
 
-        self.sync_free_run_checkbox = QCheckBox("Sync Free Run", self)
-        self.sync_free_run_checkbox.setChecked(False)
-        self.sync_free_run_checkbox.stateChanged.connect(self.set_sync_free_run_timer)
-        self.sync_free_run_checkbox.setFixedHeight(40)
-        self.sync_free_run_checkbox.setFixedWidth(250)
-        self.sync_free_run_checkbox.setStyleSheet('font-size: 20px;background-color: #839788; ')
-        trigger_layout.addWidget(self.sync_free_run_checkbox, alignment=Qt.AlignHCenter)
+
+        trigger_source_layout = QHBoxLayout()
+        self.trigger_source_label = QLabel("Trigger Source:", self)
+        self.trigger_source_label.setToolTip("Sets the source signal for the selected trigger.")
+        self.trigger_source_label.setFixedWidth(250)
+        self.trigger_source_label.setAlignment(Qt.AlignCenter)
+        self.trigger_source_label.setStyleSheet('font-size : 20px; background-color: #ede7e3;')
+        self.trigger_source_combobox = QComboBox(self)
+        self.trigger_source_combobox.addItems(["Software", "Line1", "Line3", "Action1"])
+        self.trigger_source_combobox.currentTextChanged.connect(self.set_trigger_source)
+        self.trigger_source_combobox.setFixedWidth(400)
+        self.trigger_source_combobox.setFixedHeight(50)
+        self.trigger_source_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3; padding-left:150px;')
+        trigger_source_layout.addWidget(self.trigger_source_label)
+        trigger_source_layout.addWidget(self.trigger_source_combobox)
+
+        trigger_layout.addLayout(trigger_source_layout)
 
         sync_free_run_rate_layout = QHBoxLayout()
-        self.sync_free_run_rate_label = QLabel("Sync Free Run Trigger Rate:", self)
+        self.sync_free_run_rate_label = QLabel("Sync Free Run Trigger Rate:", self)        
+        self.sync_free_run_rate_label.setToolTip("Synchoronous free run trigger rate.")
         self.sync_free_run_rate_label.setFixedWidth(250)
         self.sync_free_run_rate_label.setAlignment(Qt.AlignCenter)
         self.sync_free_run_rate_label.setStyleSheet('font-size: 20px;background-color: #ede7e3')
@@ -524,30 +550,36 @@ class SettingsPage(HoverWidget):
         self.sync_free_run_rate_spinbox.setValue(20)
         self.sync_free_run_rate_spinbox.valueChanged.connect(self.set_sync_free_run_timer_rate)
         self.sync_free_run_rate_spinbox.setFixedHeight(50)
-        self.sync_free_run_rate_spinbox.setStyleSheet('font-size: 20px; background-color: #EDE7E3')
+        self.sync_free_run_rate_spinbox.setStyleSheet('font-size: 20px; background-color: #EDE7E3;padding-left:180px;')
         sync_free_run_rate_layout.addWidget(self.sync_free_run_rate_label)
         sync_free_run_rate_layout.addWidget(self.sync_free_run_rate_spinbox)
 
         trigger_layout.addLayout(sync_free_run_rate_layout)
 
-        trigger_source_layout = QHBoxLayout()
-        self.trigger_source_label = QLabel("Trigger Source:", self)
-        self.trigger_source_label.setFixedWidth(250)
-        self.trigger_source_label.setAlignment(Qt.AlignCenter)
-        self.trigger_source_label.setStyleSheet('font-size : 20px; background-color: #ede7e3')
-        self.trigger_source_combobox = QComboBox(self)
-        self.trigger_source_combobox.addItems(["Software", "Line1", "Line3", "Action1"])
-        self.trigger_source_combobox.currentTextChanged.connect(self.set_trigger_source)
-        self.trigger_source_combobox.setFixedWidth(400)
-        self.trigger_source_combobox.setFixedHeight(50)
-        self.trigger_source_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3')
-        trigger_source_layout.addWidget(self.trigger_source_label)
-        trigger_source_layout.addWidget(self.trigger_source_combobox)
+        self.sync_free_run_checkbox = QCheckBox("Sync Free Run", self)
+        self.sync_free_run_checkbox.setToolTip("Enables the synchronous free run mode.")
+        self.sync_free_run_checkbox.setChecked(False)
+        self.sync_free_run_checkbox.stateChanged.connect(self.set_sync_free_run_timer)
+        self.sync_free_run_checkbox.setFixedHeight(50)
+        self.sync_free_run_checkbox.setFixedWidth(250)
+        self.sync_free_run_checkbox.setStyleSheet('font-size: 20px;background-color: #839788; padding-left: 45px; ')
 
-        trigger_layout.addLayout(trigger_source_layout)
+        execute_button = self.create_button('Execute', self.execute_sync_free_run_timer_update)
+        execute_button.setToolTip("Updates synchronous free run settings.")
+
+        execute_button.setFont(QFont("Arial", 16)) 
+        execute_button.setFixedWidth(400)
+        execute_button.setFixedHeight(50)
+
+        sync_execute_layout = QHBoxLayout()
+        sync_execute_layout.addWidget(self.sync_free_run_checkbox)
+        sync_execute_layout.addWidget(execute_button)
+
+        trigger_layout.addLayout(sync_execute_layout)  
 
         trigger_selecter_layout = QHBoxLayout()
         self.trigger_selecter_label = QLabel("Trigger Selecter:", self)
+        self.trigger_selecter_label.setToolTip("Sets the trigger type to be configured.")
         self.trigger_selecter_label.setAlignment(Qt.AlignCenter)
         self.trigger_selecter_label.setFixedWidth(250)
         self.trigger_selecter_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
@@ -556,7 +588,7 @@ class SettingsPage(HoverWidget):
         self.trigger_selecter_combobox.currentTextChanged.connect(self.set_trigger_selecter)
         self.trigger_selecter_combobox.setFixedWidth(410)
         self.trigger_selecter_combobox.setFixedHeight(50)
-        self.trigger_selecter_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3')
+        self.trigger_selecter_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3; padding-left:140px;')
         trigger_selecter_layout.addWidget(self.trigger_selecter_label)
         trigger_selecter_layout.addWidget(self.trigger_selecter_combobox)
 
@@ -564,6 +596,7 @@ class SettingsPage(HoverWidget):
 
         trigger_activation_layout = QHBoxLayout()
         self.trigger_activation_label = QLabel("Trigger Activation:", self)
+        self.trigger_activation_label.setToolTip("Setsthe type of signal transition that will activate the selected trigger.")
         self.trigger_activation_label.setAlignment(Qt.AlignCenter)
         self.trigger_activation_label.setFixedWidth(250)
         self.trigger_activation_label.setStyleSheet('font-size: 20px; background-color: #ede7e3')
@@ -572,7 +605,7 @@ class SettingsPage(HoverWidget):
         self.trigger_activation_combobox.currentTextChanged.connect(self.set_trigger_activation)
         self.trigger_activation_combobox.setFixedWidth(410)
         self.trigger_activation_combobox.setFixedHeight(50)
-        self.trigger_activation_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3')
+        self.trigger_activation_combobox.setStyleSheet('font-size: 20px; background-color: #EDE7E3;padding-left:150px;')
         trigger_activation_layout.addWidget(self.trigger_activation_label)
         trigger_activation_layout.addWidget(self.trigger_activation_combobox)
 
@@ -601,19 +634,17 @@ class SettingsPage(HoverWidget):
         for label in labels:
             label.setFont(font)
 
-        execute_button = self.create_button('Execute', self.execute_sync_free_run_timer_update)
-        execute_button.setFont(QFont("Arial", 16)) 
-        execute_button.setFixedWidth(400)
 
         self.save_button_settings = self.create_button('Save', self.save_settings)
         self.save_button_settings.setEnabled(True)
+        self.save_button_settings.setToolTip("All settings will be saved when clicked")
+
         self.save_button_settings.setStyleSheet(button_style)
         self.save_button_settings.setFixedWidth(400)
         self.save_button_settings.setFont(QFont("Arial",16)) 
 
         button_layout = QVBoxLayout()
 
-        button_layout.addWidget(execute_button)
         button_layout.addWidget(self.save_button_settings)
 
         horizontal_layout = QHBoxLayout()
@@ -809,7 +840,8 @@ class CameraApp(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Camera Application")
+        self.setWindowTitle("SpechtLab Basler Camera Viewer")
+        self.setWindowIcon(QIcon('spc.png'))
 
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("background-color: #CAD2C5;")
